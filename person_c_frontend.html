@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rural Hospital Resource Network</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #F1F4EF;
+    --surface: #FFFFFF;
+    --surface-alt: #F7F9F5;
+    --border: #DCE3D8;
+    --ink: #16302B;
+    --ink-muted: #5C6F67;
+    --teal: #0F5C5C;
+    --teal-dark: #0A4344;
+    --teal-tint: #E4EEEC;
+    --amber: #BD7E1F;
+    --amber-tint: #F6EBD8;
+    --critical: #B3261E;
+    --high: #C1671A;
+    --medium: #A9790E;
+    --medium-bg: #F4E3B0;
+    --low: #3B7A43;
+    --radius: 10px;
+    --focus: #1C7C86;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Zilla Slab', Georgia, serif;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 4px;
+  }
+
+  a { color: var(--teal-dark); }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* ---------- Top nav ---------- */
+  nav#navbar {
+    background: var(--teal-dark);
+    padding: 0 20px;
+    display: none;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    border-bottom: 3px solid var(--amber);
+  }
+  nav#navbar .wordmark {
+    font-family: 'Zilla Slab', serif;
+    font-weight: 600;
+    color: #fff;
+    font-size: 17px;
+    padding: 14px 18px 14px 0;
+    margin-right: 6px;
+    border-right: 1px solid rgba(255,255,255,0.18);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  nav#navbar .wordmark .pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #6FCF97;
+    box-shadow: 0 0 0 3px rgba(111,207,151,0.25);
+  }
+  nav#navbar button {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: rgba(255,255,255,0.75);
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 15px 12px 13px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  nav#navbar button:hover { color: #fff; }
+  nav#navbar button.navActive { color: #fff; border-bottom-color: var(--amber); }
+  nav#navbar button#logoutBtn { margin-left: auto; color: rgba(255,255,255,0.55); }
+  nav#navbar button#logoutBtn:hover { color: #fff; }
+
+  /* ---------- Screens ---------- */
+  .screen { display: none; padding: 28px 20px 60px; max-width: 720px; margin: 0 auto; }
+  .screen.active { display: block; animation: rise 0.25s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .screen.active { animation: none; }
+  }
+
+  .screenHead { margin-bottom: 18px; }
+  .screenHead p { color: var(--ink-muted); font-size: 14px; margin: 4px 0 0; max-width: 52ch; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel h3 { font-size: 16px; margin-bottom: 2px; }
+  .panel .hint { color: var(--ink-muted); font-size: 13px; margin: 2px 0 12px; }
+
+  label.fieldLabel { display: block; font-size: 13px; color: var(--ink-muted); margin: 12px 0 4px; }
+  label.fieldLabel:first-child { margin-top: 0; }
+
+  input, select, textarea {
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    padding: 10px 12px;
+    margin: 0 0 4px;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  input::placeholder, textarea::placeholder { color: #9AA8A1; }
+  input:focus, select:focus, textarea:focus { border-color: var(--teal); }
+
+  button.primary {
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    padding: 11px;
+    font-size: 14.5px;
+    font-weight: 600;
+    width: 100%;
+    margin-top: 10px;
+    transition: background 0.15s ease;
+  }
+  button.primary:hover { background: var(--teal-dark); }
+  button.primary:active { transform: translateY(1px); }
+
+  button.locBtn {
+    background: var(--surface);
+    color: var(--teal-dark);
+    border: 1px solid var(--teal);
+    border-radius: 7px;
+    cursor: pointer;
+    padding: 10px;
+    width: 100%;
+    margin: 6px 0;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s ease;
+  }
+  button.locBtn:hover { background: var(--teal-tint); }
+
+  .orDivider {
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: 12.5px;
+    margin: 12px 0;
+    position: relative;
+  }
+
+  #geocodeResults { margin: 4px 0 2px; }
+  .geoResult {
+    text-align: left;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    margin: 5px 0;
+    cursor: pointer;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: var(--ink);
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .geoResult:hover { border-color: var(--teal); }
+  .geoResult.selected { border-color: var(--teal); background: var(--teal-tint); font-weight: 600; }
+
+  #locStatus { font-size: 13px; color: var(--ink-muted); min-height: 18px; margin-top: 6px; }
+
+  /* ---------- Auth screens ---------- */
+  .authWrap {
+    max-width: 380px;
+    margin: 0 auto;
+    padding-top: 36px;
+  }
+  .authHero { text-align: center; margin-bottom: 26px; }
+  .authHero svg { width: 100%; max-width: 320px; height: auto; margin-bottom: 6px; }
+  .authHero h1 { font-size: 26px; line-height: 1.25; }
+  .authHero p { color: var(--ink-muted); font-size: 14.5px; margin-top: 6px; }
+  .authFooter { font-size: 13.5px; color: var(--ink-muted); text-align: center; margin-top: 14px; }
+
+  /* ---------- Tables ---------- */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  th { color: var(--ink-muted); font-weight: 500; font-size: 12.5px; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody:empty::after { content: ''; }
+
+  .emptyRow td { color: var(--ink-muted); font-style: normal; padding: 16px 6px; }
+
+  /* ---------- Badges ---------- */
+  .badge { padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; color: white; display: inline-block; }
+  .urgent-critical { background: var(--critical); }
+  .urgent-high { background: var(--high); }
+  .urgent-medium { background: var(--medium-bg); color: #5A420A; }
+  .urgent-low { background: var(--low); }
+
+  /* ---------- Tab bar (in-screen toggles) ---------- */
+  .tabbar { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tabbar button {
+    flex: 1; padding: 10px 8px; border: none; background: none; color: var(--ink-muted);
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .tabbar button:hover { color: var(--ink); }
+  .tabbar button.active { color: var(--teal-dark); border-bottom-color: var(--teal); font-weight: 600; }
+
+  /* ---------- Map + match cards ---------- */
+  #map { height: 320px; border-radius: var(--radius); border: 1px solid var(--border); }
+  .matchCard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--teal);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .matchCard .matchTop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .matchCard .matchName { font-weight: 600; font-size: 15px; }
+  .matchCard .matchScore { font-size: 12.5px; color: var(--ink-muted); white-space: nowrap; }
+  .matchCard .matchMeta { color: var(--ink-muted); font-size: 13.5px; margin-top: 3px; }
+  .matchCard button.primary { margin-top: 10px; }
+
+  .emptyState {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: 14px;
+  }
+
+  /* ---------- Leaderboard ---------- */
+  #leaderboardTable td:first-child { color: var(--ink-muted); width: 34px; }
+  #leaderboardTable tr:nth-child(1) td:first-child,
+  #leaderboardTable tr:nth-child(2) td:first-child,
+  #leaderboardTable tr:nth-child(3) td:first-child { color: var(--amber); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<nav id="navbar">
+  <span class="wordmark"><span class="pulse"></span>Resource Network</span>
+  <button onclick="showScreen('dashboard')">Dashboard</button>
+  <button onclick="showScreen('requestResource')">Request Resource</button>
+  <button onclick="showScreen('referPatient')">Refer Patient</button>
+  <button onclick="showScreen('matches')">Ranked Matches</button>
+  <button onclick="showScreen('status')">Status</button>
+  <button onclick="showScreen('leaderboard')">Leaderboard</button>
+  <button id="logoutBtn" onclick="logout()">Log out</button>
+</nav>
+
+<div id="login" class="screen active">
+  <div class="authWrap">
+    <div class="authHero">
+      <svg viewBox="0 0 320 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g stroke="#0F5C5C" stroke-width="1.4" opacity="0.55">
+          <line x1="160" y1="60" x2="60" y2="30"></line>
+          <line x1="160" y1="60" x2="90" y2="95"></line>
+          <line x1="160" y1="60" x2="250" y2="25"></line>
+          <line x1="160" y1="60" x2="270" y2="85"></line>
+          <line x1="160" y1="60" x2="150" y2="15"></line>
+        </g>
+        <circle cx="160" cy="60" r="7" fill="#0F5C5C"></circle>
+        <circle cx="60" cy="30" r="4.5" fill="#0F5C5C" opacity="0.85"></circle>
+        <circle cx="90" cy="95" r="4.5" fill="#0F5C5C" opacity="0.85"></circle>
+        <circle cx="250" cy="25" r="4.5" fill="#BD7E1F"></circle>
+        <circle cx="270" cy="85" r="4.5" fill="#0F5C5C" opacity="0.85"></circle>
+        <circle cx="150" cy="15" r="4.5" fill="#0F5C5C" opacity="0.85"></circle>
+      </svg>
+      <h1>Coordinate care across the region.</h1>
+      <p>One network for supplies, capacity, and referrals between hospitals.</p>
+    </div>
+    <div class="panel">
+      <label class="fieldLabel" for="loginName">Hospital name</label>
+      <input id="loginName" placeholder="e.g. Warangal General Hospital">
+      <label class="fieldLabel" for="loginPassword">Password</label>
+      <input id="loginPassword" type="password" placeholder="Password">
+      <button class="primary" onclick="login()">Log in</button>
+    </div>
+    <p class="authFooter">No account yet? <a href="#" onclick="showScreen('register')">Register your hospital</a></p>
+  </div>
+</div>
+
+<div id="register" class="screen">
+  <div class="authWrap">
+    <div class="authHero">
+      <h1 style="font-size:22px;">Register your hospital</h1>
+      <p>Set a location so nearby hospitals can find you in matches.</p>
+    </div>
+    <div class="panel">
+      <label class="fieldLabel" for="regName">Hospital name</label>
+      <input id="regName" placeholder="Hospital name">
+      <label class="fieldLabel" for="regPhone">Contact phone</label>
+      <input id="regPhone" placeholder="Contact phone">
+      <label class="fieldLabel" for="regPassword">Password</label>
+      <input id="regPassword" type="password" placeholder="Password">
+
+      <label class="fieldLabel">Location</label>
+      <button type="button" class="locBtn" onclick="captureLocation()">📍 Use my current location</button>
+
+      <div class="orDivider">or</div>
+
+      <input id="regAddressInput" placeholder="Type a place name (e.g. Warangal, Telangana)">
+      <button type="button" class="locBtn" onclick="geocodeAddress()">🔎 Find this location</button>
+      <div id="geocodeResults"></div>
+
+      <p id="locStatus"></p>
+      <button class="primary" onclick="register()">Register</button>
+    </div>
+    <p class="authFooter">Already registered? <a href="#" onclick="showScreen('login')">Log in</a></p>
+  </div>
+</div>
+
+<div id="dashboard" class="screen">
+  <div class="screenHead">
+    <h2>Dashboard</h2>
+    <p>Keep your inventory and capabilities current — this is what other hospitals see when they search for matches.</p>
+  </div>
+
+  <div class="panel">
+    <h3>Add or update a resource</h3>
+    <p class="hint">Enter what you have on hand right now.</p>
+    <label class="fieldLabel" for="resType">Resource type</label>
+    <select id="resType">
+      <option value="blood_o_neg">Blood O-negative</option>
+      <option value="oxygen_cylinder">Oxygen cylinder</option>
+      <option value="ventilator">Ventilator</option>
+      <option value="ambulance">Ambulance</option>
+      <option value="icu_bed">ICU bed</option>
+    </select>
+    <label class="fieldLabel" for="resQty">Quantity</label>
+    <input id="resQty" type="number" placeholder="Quantity">
+    <label class="fieldLabel" for="resUnit">Unit</label>
+    <input id="resUnit" placeholder="Unit (e.g. units, cylinders)">
+    <button class="primary" onclick="saveResource()">Save resource</button>
+  </div>
+
+  <div class="panel">
+    <h3>Current inventory</h3>
+    <table id="inventoryTable"><tbody></tbody></table>
+  </div>
+
+  <div class="panel">
+    <h3>Add or update a facility capability</h3>
+    <p class="hint">Used for patient referrals — what your hospital can treat and how much free capacity you have.</p>
+    <label class="fieldLabel" for="capType">Facility type</label>
+    <select id="capType">
+      <option value="cardiology">Cardiology</option>
+      <option value="neurosurgery">Neurosurgery</option>
+      <option value="dialysis">Dialysis</option>
+      <option value="nicu">NICU</option>
+      <option value="trauma_center">Trauma center</option>
+    </select>
+    <label class="fieldLabel" for="capCapacity">Available capacity</label>
+    <input id="capCapacity" type="number" placeholder="Free beds / slots">
+    <button class="primary" onclick="saveCapability()">Save capability</button>
+  </div>
+
+  <div class="panel">
+    <h3>Current capabilities</h3>
+    <table id="capabilityTable"><tbody></tbody></table>
+  </div>
+</div>
+
+<div id="requestResource" class="screen">
+  <div class="screenHead">
+    <h2>Request a resource</h2>
+    <p>We'll rank nearby hospitals by distance, urgency, and how well their supply covers what you need.</p>
+  </div>
+  <div class="panel">
+    <label class="fieldLabel" for="reqType">Resource type</label>
+    <select id="reqType">
+      <option value="blood_o_neg">Blood O-negative</option>
+      <option value="oxygen_cylinder">Oxygen cylinder</option>
+      <option value="ventilator">Ventilator</option>
+      <option value="ambulance">Ambulance</option>
+      <option value="icu_bed">ICU bed</option>
+    </select>
+    <label class="fieldLabel" for="reqQty">Quantity needed</label>
+    <input id="reqQty" type="number" placeholder="Quantity needed">
+    <label class="fieldLabel" for="reqUrgency">Urgency</label>
+    <select id="reqUrgency">
+      <option value="critical">Critical</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+    <button class="primary" onclick="submitRequest()">Submit request</button>
+  </div>
+</div>
+
+<div id="referPatient" class="screen">
+  <div class="screenHead">
+    <h2>Refer a patient</h2>
+    <p>Find hospitals with the facility and free capacity this patient needs.</p>
+  </div>
+  <div class="panel">
+    <label class="fieldLabel" for="refPatientId">Patient ID (optional)</label>
+    <input id="refPatientId" placeholder="Patient ID (optional)">
+    <label class="fieldLabel" for="refPatientName">Patient name</label>
+    <input id="refPatientName" placeholder="Patient name">
+    <label class="fieldLabel" for="refFacility">Facility required</label>
+    <select id="refFacility">
+      <option value="cardiology">Cardiology</option>
+      <option value="neurosurgery">Neurosurgery</option>
+      <option value="dialysis">Dialysis</option>
+      <option value="nicu">NICU</option>
+      <option value="trauma_center">Trauma center</option>
+    </select>
+    <label class="fieldLabel" for="refReason">Reason for referral</label>
+    <textarea id="refReason" placeholder="Reason for referral" rows="2"></textarea>
+    <label class="fieldLabel" for="refUrgency">Urgency</label>
+    <select id="refUrgency">
+      <option value="critical">Critical</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+    <label class="fieldLabel" for="refRadius">Preferred radius (km, optional)</label>
+    <input id="refRadius" type="number" placeholder="e.g. 50">
+    <label class="fieldLabel" for="refNotes">Notes</label>
+    <textarea id="refNotes" placeholder="Optional notes" rows="2"></textarea>
+    <button class="primary" onclick="submitReferral()">Submit referral</button>
+  </div>
+</div>
+
+<div id="matches" class="screen">
+  <div class="screenHead">
+    <h2>Ranked matches</h2>
+    <p>Best matches are ranked by proximity, urgency, and available supply or capacity.</p>
+  </div>
+  <div class="tabbar">
+    <button id="tabResource" class="active" onclick="setMatchType('resource')">Resource request</button>
+    <button id="tabReferral" onclick="setMatchType('referral')">Patient referral</button>
+  </div>
+  <div class="panel">
+    <label class="fieldLabel" for="matchId">Request or referral ID</label>
+    <input id="matchId" placeholder="Shown after you submit a request or referral">
+    <button class="primary" onclick="loadMatches()">Find ranked hospitals</button>
+  </div>
+  <div id="map" style="margin-bottom:16px;"></div>
+  <div id="matchList"></div>
+</div>
+
+<div id="status" class="screen">
+  <div class="screenHead">
+    <h2>Status</h2>
+    <p>Track your open and fulfilled requests and referrals.</p>
+  </div>
+  <div class="tabbar">
+    <button id="statusTabResource" class="active" onclick="setStatusType('resource')">Resource requests</button>
+    <button id="statusTabReferral" onclick="setStatusType('referral')">Patient referrals</button>
+  </div>
+  <div class="panel">
+    <table id="statusTable">
+      <thead id="statusTableHead"><tr><th>Type</th><th>Qty</th><th>Urgency</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="leaderboard" class="screen">
+  <div class="screenHead">
+    <h2>Top contributing hospitals</h2>
+    <p>Credits are earned by fulfilling requests and accepting referrals — weighted by urgency.</p>
+  </div>
+  <div class="panel">
+    <table id="leaderboardTable">
+      <thead><tr><th>Rank</th><th>Hospital</th><th>Credits</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:8000";
+let hospitalId = localStorage.getItem("hospitalId");
+let leafletMap = null;
+let currentMatchType = "resource";
+let currentStatusType = "resource";
+
+// --- Geolocation capture for registration ---
+let capturedLat = null, capturedLng = null;
+
+function captureLocation() {
+  const statusEl = document.getElementById("locStatus");
+  if (!navigator.geolocation) {
+    statusEl.textContent = "Geolocation not supported by this browser.";
+    return;
+  }
+  statusEl.textContent = "Getting location...";
+  document.getElementById("geocodeResults").innerHTML = "";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      capturedLat = pos.coords.latitude;
+      capturedLng = pos.coords.longitude;
+      statusEl.textContent = `Location captured ✔ (${capturedLat.toFixed(4)}, ${capturedLng.toFixed(4)})`;
+    },
+    (err) => {
+      statusEl.textContent = "Couldn't get location: " + err.message;
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// --- Address -> lat/lng lookup for registration (alternative to GPS) ---
+async function geocodeAddress() {
+  const query = document.getElementById("regAddressInput").value.trim();
+  const statusEl = document.getElementById("locStatus");
+  const resultsEl = document.getElementById("geocodeResults");
+  resultsEl.innerHTML = "";
+
+  if (!query) {
+    statusEl.textContent = "Type a place name first.";
+    return;
+  }
+
+  statusEl.textContent = "Looking up location...";
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("lookup failed");
+    const results = await res.json();
+
+    if (!results.length) {
+      statusEl.textContent = `No matches found for "${query}". Try adding a district/state.`;
+      return;
+    }
+
+    statusEl.textContent = `${results.length} match(es) found — pick the right one:`;
+    resultsEl.innerHTML = results.map((r, i) => `
+      <div class="geoResult" id="geoResult${i}" onclick="selectGeocodeResult(${i})">
+        ${r.display_name}
+      </div>`).join("");
+
+    // stash raw results so selectGeocodeResult can read lat/lon without re-fetching
+    window._geocodeCandidates = results;
+  } catch (err) {
+    statusEl.textContent = "Couldn't look up that location. Check your connection and try again, or use current location instead.";
+  }
+}
+
+function selectGeocodeResult(i) {
+  const r = window._geocodeCandidates[i];
+  capturedLat = parseFloat(r.lat);
+  capturedLng = parseFloat(r.lon);
+
+  document.querySelectorAll(".geoResult").forEach(el => el.classList.remove("selected"));
+  document.getElementById(`geoResult${i}`).classList.add("selected");
+
+  document.getElementById("locStatus").textContent =
+    `Location set ✔ (${capturedLat.toFixed(4)}, ${capturedLng.toFixed(4)})`;
+}
+
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll("#navbar button[onclick^=\"showScreen\"]").forEach(b => {
+    b.classList.toggle("navActive", b.getAttribute("onclick") === `showScreen('${id}')`);
+  });
+  if (id === "dashboard") { loadInventory(); loadCapabilities(); }
+  if (id === "status") loadStatus();
+  if (id === "leaderboard") loadLeaderboard();
+}
+
+function logout() {
+  localStorage.removeItem("hospitalId");
+  hospitalId = null;
+  document.getElementById("navbar").style.display = "none";
+  showScreen("login");
+}
+
+async function register() {
+  if (capturedLat === null || capturedLng === null) {
+    alert("Please set a location first — use your current location or find one by name.");
+    return;
+  }
+  const body = {
+    name: document.getElementById("regName").value,
+    lat: capturedLat,
+    lng: capturedLng,
+    contact_phone: document.getElementById("regPhone").value,
+    password: document.getElementById("regPassword").value,
+  };
+  const res = await fetch(`${API}/hospitals/register`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  if (res.ok) { alert("Registered — please log in."); showScreen("login"); }
+  else alert("Registration failed.");
+}
+
+async function login() {
+  const body = {
+    name: document.getElementById("loginName").value,
+    password: document.getElementById("loginPassword").value,
+  };
+  const res = await fetch(`${API}/auth/login`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  if (!res.ok) { alert("Invalid login."); return; }
+  const data = await res.json();
+  hospitalId = data.hospital_id;
+  localStorage.setItem("hospitalId", hospitalId);
+  document.getElementById("navbar").style.display = "flex";
+  showScreen("dashboard");
+}
+
+async function loadInventory() {
+  const res = await fetch(`${API}/resources?hospital_id=${hospitalId}`);
+  const items = await res.json();
+  document.querySelector("#inventoryTable tbody").innerHTML = items.length
+    ? items.map(i => `<tr><td>${i.resource_type}</td><td>${i.quantity} ${i.unit}</td></tr>`).join("")
+    : `<tr class="emptyRow"><td colspan="2">Nothing logged yet — add a resource above.</td></tr>`;
+}
+
+async function saveResource() {
+  const body = {
+    hospital_id: parseInt(hospitalId),
+    resource_type: document.getElementById("resType").value,
+    quantity: parseInt(document.getElementById("resQty").value),
+    unit: document.getElementById("resUnit").value,
+  };
+  await fetch(`${API}/resources`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  loadInventory();
+}
+
+async function loadCapabilities() {
+  const res = await fetch(`${API}/capabilities?hospital_id=${hospitalId}`);
+  const items = await res.json();
+  document.querySelector("#capabilityTable tbody").innerHTML = items.length
+    ? items.map(c => `<tr><td>${c.facility_type}</td><td>${c.available_capacity} available</td></tr>`).join("")
+    : `<tr class="emptyRow"><td colspan="2">No capabilities logged yet — add one above.</td></tr>`;
+}
+
+async function saveCapability() {
+  const body = {
+    hospital_id: parseInt(hospitalId),
+    facility_type: document.getElementById("capType").value,
+    available_capacity: parseInt(document.getElementById("capCapacity").value),
+  };
+  await fetch(`${API}/capabilities`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  loadCapabilities();
+}
+
+async function submitRequest() {
+  const body = {
+    requesting_hospital_id: parseInt(hospitalId),
+    resource_type: document.getElementById("reqType").value,
+    quantity_needed: parseInt(document.getElementById("reqQty").value),
+    urgency: document.getElementById("reqUrgency").value,
+  };
+  const res = await fetch(`${API}/requests`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  alert(`Request submitted. ID ${data.request_id} — use it on the Ranked Matches screen.`);
+  currentMatchType = "resource";
+  showScreen("matches");
+  setMatchType("resource");
+  document.getElementById("matchId").value = data.request_id;
+}
+
+async function submitReferral() {
+  const body = {
+    patient_id: document.getElementById("refPatientId").value || null,
+    patient_name: document.getElementById("refPatientName").value,
+    referring_hospital_id: parseInt(hospitalId),
+    required_facility: document.getElementById("refFacility").value,
+    reason: document.getElementById("refReason").value,
+    urgency: document.getElementById("refUrgency").value,
+    preferred_radius_km: document.getElementById("refRadius").value
+      ? parseFloat(document.getElementById("refRadius").value) : null,
+    notes: document.getElementById("refNotes").value,
+  };
+  const res = await fetch(`${API}/referrals`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  alert(`Referral submitted. ID ${data.referral_id} — use it on the Ranked Matches screen.`);
+  currentMatchType = "referral";
+  showScreen("matches");
+  setMatchType("referral");
+  document.getElementById("matchId").value = data.referral_id;
+}
+
+function setMatchType(type) {
+  currentMatchType = type;
+  document.getElementById("tabResource").classList.toggle("active", type === "resource");
+  document.getElementById("tabReferral").classList.toggle("active", type === "referral");
+}
+
+async function loadMatches() {
+  const id = document.getElementById("matchId").value;
+  const endpoint = currentMatchType === "resource"
+    ? `${API}/requests/${id}/matches`
+    : `${API}/referrals/${id}/matches`;
+  const res = await fetch(endpoint);
+  const matches = await res.json();
+
+  if (leafletMap) leafletMap.remove();
+  leafletMap = L.map('map').setView([17.6, 78.0], 8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap);
+
+  matches.forEach(m => {
+    const availLabel = currentMatchType === "resource"
+      ? `${m.quantity_available} available` : `${m.available_capacity} free capacity`;
+    L.marker([m.lat, m.lng]).addTo(leafletMap)
+      .bindPopup(`<b>${m.name}</b><br>${m.distance_km} km away<br>${availLabel}<br>Score: ${m.score}`);
+  });
+
+  document.getElementById("matchList").innerHTML = matches.map(m => {
+    const availLabel = currentMatchType === "resource"
+      ? `${m.quantity_available} available` : `${m.available_capacity} free capacity`;
+    const actionLabel = currentMatchType === "resource" ? "Request from this hospital" : "Refer to this hospital";
+    return `
+      <div class="matchCard">
+        <div class="matchTop">
+          <span class="matchName">${m.name}</span>
+          <span class="matchScore">score ${m.score}</span>
+        </div>
+        <div class="matchMeta">${m.distance_km} km away · ${availLabel}</div>
+        <button class="primary" onclick="acceptMatch(${id}, ${m.hospital_id})">${actionLabel}</button>
+      </div>`;
+  }).join("") || `<div class="emptyState">No hospitals matched yet. Try a wider referral radius, or check again once more hospitals update their inventory.</div>`;
+}
+
+async function acceptMatch(id, otherHospitalId) {
+  const endpoint = currentMatchType === "resource" ? `${API}/requests/accept` : `${API}/referrals/accept`;
+  const body = currentMatchType === "resource"
+    ? { request_id: parseInt(id), fulfilling_hospital_id: otherHospitalId }
+    : { referral_id: parseInt(id), accepting_hospital_id: otherHospitalId };
+  await fetch(endpoint, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  alert("Done!");
+  currentStatusType = currentMatchType;
+  showScreen("status");
+  setStatusType(currentMatchType);
+}
+
+function setStatusType(type) {
+  currentStatusType = type;
+  document.getElementById("statusTabResource").classList.toggle("active", type === "resource");
+  document.getElementById("statusTabReferral").classList.toggle("active", type === "referral");
+  document.getElementById("statusTableHead").innerHTML = type === "resource"
+    ? "<tr><th>Type</th><th>Qty</th><th>Urgency</th><th>Status</th></tr>"
+    : "<tr><th>Patient</th><th>Facility</th><th>Urgency</th><th>Status</th></tr>";
+  loadStatus();
+}
+
+async function loadStatus() {
+  const endpoint = currentStatusType === "resource"
+    ? `${API}/requests?hospital_id=${hospitalId}`
+    : `${API}/referrals?hospital_id=${hospitalId}`;
+  const res = await fetch(endpoint);
+  const items = await res.json();
+  const tbody = document.querySelector("#statusTable tbody");
+  if (!items.length) {
+    tbody.innerHTML = `<tr class="emptyRow"><td colspan="4">Nothing here yet.</td></tr>`;
+    return;
+  }
+  if (currentStatusType === "resource") {
+    tbody.innerHTML = items.map(r => `
+      <tr><td>${r.resource_type}</td><td>${r.quantity_needed}</td>
+      <td><span class="badge urgent-${r.urgency}">${r.urgency}</span></td><td>${r.status}</td></tr>`).join("");
+  } else {
+    tbody.innerHTML = items.map(r => `
+      <tr><td>${r.patient_name}</td><td>${r.required_facility}</td>
+      <td><span class="badge urgent-${r.urgency}">${r.urgency}</span></td><td>${r.status}</td></tr>`).join("");
+  }
+}
+
+async function loadLeaderboard() {
+  const res = await fetch(`${API}/leaderboard`);
+  const items = await res.json();
+  document.querySelector("#leaderboardTable tbody").innerHTML =
+    items.map(l => `<tr><td>${l.rank}</td><td>${l.name}</td><td>${l.credit_balance}</td></tr>`).join("");
+}
+
+if (hospitalId) {
+  document.getElementById("navbar").style.display = "flex";
+  showScreen("dashboard");
+}
+</script>
+</body>
+</html>
